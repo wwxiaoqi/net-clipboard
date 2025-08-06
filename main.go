@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -192,10 +193,17 @@ func serveHTMLPage(w http.ResponseWriter, r *http.Request, noteID, filePath stri
 		content = cleanupFormData(string(fileData))
 	}
 	
-	// Set cache control header
+	// Set security headers to prevent XSS attacks
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
 	
-	// Serve the HTML page with template, carefully handling the placeholders
+	// Serve the HTML page with template, properly escaping all dynamic content
+	// Escape content for safe HTML insertion
+	escapedContent := html.EscapeString(content)
+	escapedNoteID := html.EscapeString(noteID)
+	
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -546,7 +554,7 @@ func serveHTMLPage(w http.ResponseWriter, r *http.Request, noteID, filePath stri
         uploadContent();
     </script>
 </body>
-</html>`, noteID, noteID, content)
+</html>`, escapedNoteID, escapedNoteID, escapedContent)
 	
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
